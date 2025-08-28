@@ -4,7 +4,7 @@ from fastapi.responses import StreamingResponse
 from vertexai import agent_engines
 import vertexai
 from pydantic import BaseModel, Field
-from typing import List, Literal
+from typing import List, Literal, Optional
 from datetime import datetime
 import json
 from fastapi.responses import JSONResponse
@@ -40,12 +40,12 @@ class Activity(BaseModel):
     startTime: datetime
     duration: int  # in minutes
     endTime: datetime
-    transportType: Literal[
+    transportType: Optional[Literal[
         "train", "highSpeedTrain", "flight", "bus", "taxi",
         "bike", "walk", "car", "boat", "motorcycle", "other"
-    ]
+    ]] = None
     note: str
-    childActivities: List[ChildActivity]
+    childActivities: List[ChildActivity] = Field(default_factory=list)
 
 
 class AgentResponse(BaseModel):
@@ -71,16 +71,27 @@ async def query(payload: QueryPayload):
     remote_agent = agent_engines.get(AGENT_ID)
 
     full_text = ""
-    async for chunk in remote_agent.async_stream_query(prompt):
-        full_text += chunk["text"]
+    async for event in remote_agent.async_stream_query(
+        user_id="USER_ID",
+        message=prompt,
+    ):
+        for resp in event['content']['parts']:
+            if 'text' in resp:
+                full_text = resp['text']
+                # trim markdown format
+                first_brace = full_text.index('{')
+                if first_brace > 0:
+                    full_text = full_text[first_brace:-3]
+                break
 
     try:
-        parsed = json.loads(full_text)
-        validated = AgentResponse(**parsed)
-        return JSONResponse(content=validated.dict())
+        validated = AgentResponse.model_validate_json(full_text)
+        return JSONResponse(content=validated.model_dump_json())
     except Exception as e:
         return JSONResponse(
             status_code=400,
-            content={"error": "Failed to parse or validate agent response", "details": str(e)}
+            content={"error": "Failed to parse or validate agent response",
+                     "details": str(e),
+                    },
         )
 
