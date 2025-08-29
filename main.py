@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
 from vertexai import agent_engines
 import vertexai
@@ -8,7 +8,9 @@ from typing import List, Literal, Optional
 from datetime import datetime
 import json
 from fastapi.responses import JSONResponse
+import logging
 
+logger = logging.getLogger('uvicorn.error')
 
 api = FastAPI()
 
@@ -49,6 +51,7 @@ class Activity(BaseModel):
 
 
 class AgentResponse(BaseModel):
+    title: str
     activities: List[Activity]
 
 
@@ -65,7 +68,9 @@ async def query(payload: QueryPayload):
     prompt = (
         f'Please plan a {payload.days}-days trip starting from '
         f'{payload.startDate} in {", ".join(payload.locations)}. '
-        f'Use {payload.language} for all value data.'
+        f'Please give a title of this trip.'
+        f'Use {payload.language} for value of title, location, note, and name.'
+        f'All remaining values should be in English.'
     )
 
     remote_agent = agent_engines.get(AGENT_ID)
@@ -86,8 +91,9 @@ async def query(payload: QueryPayload):
 
     try:
         validated = AgentResponse.model_validate_json(full_text)
-        return JSONResponse(content=validated.model_dump_json())
+        return Response(content=validated.model_dump_json(), media_type='application/json')
     except Exception as e:
+        logger.error(f'exception: {e}\n full_text: {full_text}')
         return JSONResponse(
             status_code=400,
             content={"error": "Failed to parse or validate agent response",
