@@ -1,4 +1,5 @@
 import os
+import uuid
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
 from vertexai import agent_engines
@@ -27,6 +28,7 @@ vertexai.init(
     location=LOCATION,
 )
 
+remote_agent = agent_engines.get(AGENT_ID)
 
 class ChildActivity(BaseModel):
     name: str
@@ -73,11 +75,13 @@ async def query(payload: QueryPayload):
         f'All remaining values should be in English.'
     )
 
-    remote_agent = agent_engines.get(AGENT_ID)
+    uid = str(uuid.uuid4())
+    session = await remote_agent.async_create_session(user_id=uid)
 
     full_text = ""
     async for event in remote_agent.async_stream_query(
-        user_id="USER_ID",
+        user_id=uid,
+        session_id=session['id'],
         message=prompt,
     ):
         for resp in event['content']['parts']:
@@ -88,6 +92,8 @@ async def query(payload: QueryPayload):
                 if first_brace > 0:
                     full_text = full_text[first_brace:-3]
                 break
+
+    await remote_agent.async_delete_session(user_id=uid, session_id=session['id'])
 
     try:
         validated = AgentResponse.model_validate_json(full_text)
