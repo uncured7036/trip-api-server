@@ -19,10 +19,6 @@ PROJECT_ID = os.environ.get('PROJECT_ID')
 LOCATION = os.environ.get('LOCATION')
 AGENT_ID = os.environ.get('AGENT_ID')
 
-print(f'PROJECT_ID: {PROJECT_ID}')
-print(f'LOCATION: {LOCATION}')
-print(f'AGENT_ID: {AGENT_ID}')
-
 vertexai.init(
     project=PROJECT_ID,
     location=LOCATION,
