@@ -68,7 +68,7 @@ async def query(payload: QueryPayload):
         f'{payload.startDate} in {", ".join(payload.locations)}. '
         f'Please give a title of this trip. '
         f'Use {payload.language} for value of title, location, note, and name. '
-        f'All remaining values should be in English.'
+        f'All remaining values should be in English. '
     )
 
     uid = str(uuid.uuid4())
