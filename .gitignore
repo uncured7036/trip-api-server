@@ -1,2 +1,4 @@
 .dockerenv
 .env
+test/
+__pycache__/
