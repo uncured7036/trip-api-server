@@ -31,6 +31,11 @@ class ChildActivity(BaseModel):
     duration: int  # in minutes
 
 
+class LatLng(BaseModel):
+    latitude: float
+    longitude: float
+
+
 class Activity(BaseModel):
     type: Literal[
         "sightseeing", "restaurant", "shopping", "accommodation",
@@ -46,6 +51,9 @@ class Activity(BaseModel):
     ]] = None
     note: str
     childActivities: List[ChildActivity] = Field(default_factory=list)
+    latLng: Optional[LatLng] = None
+    placeUri: Optional[str] = None
+
 
 
 class AgentResponse(BaseModel):
