@@ -84,7 +84,7 @@ async def query(payload: QueryPayload):
             if 'text' in resp:
                 full_text = resp['text']
                 # trim markdown format
-                first_brace = full_text.index('{')
+                first_brace = full_text.find('{')
                 if first_brace > 0:
                     full_text = full_text[first_brace:-3]
                 break
