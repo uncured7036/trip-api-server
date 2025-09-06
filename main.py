@@ -42,9 +42,10 @@ class Activity(BaseModel):
         "freeTime", "transport", "other"
     ]
     location: str
-    startTime: datetime
+    startTimeUtc: datetime
     duration: int  # in minutes
-    endTime: datetime
+    endTimeUtc: datetime
+    timeZone: str
     transportType: Optional[Literal[
         "train", "highSpeedTrain", "flight", "bus", "taxi",
         "bike", "walk", "car", "boat", "motorcycle", "other"
