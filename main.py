@@ -67,6 +67,7 @@ class QueryPayload(BaseModel):
     startDate: str = Field(..., example="2025-09-10")
     days: int = Field(..., example=2)
     language: str = Field(..., example="Chinese Traditional")
+    interests: Optional[list[str]] = None
 
 
 
@@ -75,10 +76,16 @@ async def query(payload: QueryPayload):
     prompt = (
         f'Please plan a {payload.days}-days trip starting from '
         f'{payload.startDate} in {", ".join(payload.locations)}. '
+    )
+    if payload.interests:
+        prompt += f'The purposes of the trip are '
+        prompt += ','.join(payload.interests) + '. '
+    prompt += (
         f'Please give a title of this trip. '
         f'Use {payload.language} for value of title, location, note, and name. '
         f'All remaining values should be in English.'
     )
+    logger.info(prompt)
 
     uid = str(uuid.uuid4())
     session = await remote_agent.async_create_session(user_id=uid)
