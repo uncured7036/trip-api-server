@@ -85,7 +85,6 @@ async def query(payload: QueryPayload):
         f'Use {payload.language} for value of title, location, note, and name. '
         f'All remaining values should be in English.'
     )
-    logger.info(prompt)
 
     uid = str(uuid.uuid4())
     session = await remote_agent.async_create_session(user_id=uid)
