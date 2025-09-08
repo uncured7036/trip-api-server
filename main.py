@@ -83,7 +83,10 @@ async def query(payload: QueryPayload):
     prompt += (
         f'Please give a title of this trip. '
         f'Use {payload.language} for value of title, location, note, and name. '
-        f'All remaining values should be in English.'
+        f'All remaining values should be in English. '
+        f'No extra commentary or formatting. '
+        f'Do not include any explanations, markdown, or extra text. '
+        f'Output the JSON without additional explanation. '
     )
 
     uid = str(uuid.uuid4())
@@ -99,10 +102,11 @@ async def query(payload: QueryPayload):
             if 'text' in resp:
                 full_text = resp['text']
                 # trim markdown format
-                first_brace = full_text.find('{')
-                if first_brace > 0:
-                    full_text = full_text[first_brace:-3]
-                break
+                if 'STARTJSON' in full_text and 'ENDJSON' in full_text:
+                    startjson = full_text.find('STARTJSON')
+                    endjson = full_text.find('ENDJSON')
+                    full_text = full_text[startjson + 9:endjson]
+                    break
 
     await remote_agent.async_delete_session(user_id=uid, session_id=session['id'])
 
