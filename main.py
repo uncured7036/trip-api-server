@@ -18,6 +18,7 @@ api = FastAPI()
 PROJECT_ID = os.environ.get('PROJECT_ID')
 LOCATION = os.environ.get('LOCATION')
 AGENT_ID = os.environ.get('AGENT_ID')
+GLOBAL_USER_ID = 'GLOBAL_USER_ID'
 
 vertexai.init(
     project=PROJECT_ID,
@@ -70,9 +71,53 @@ class QueryPayload(BaseModel):
     interests: Optional[list[str]] = None
 
 
+class UpdatePayload(BaseModel):
+    itinerary: Optional[AgentResponse] = None
+    sessionId: Optional[str] = None
+    text: Optional[str] = None
 
-@api.post("/query")
+
+class UpdateResponse(BaseModel):
+    itinerary: Optional[AgentResponse] = None
+    sessionId: str
+    text: Optional[str] = None
+
+
+@api.post('/update')
+async def update(payload: UpdatePayload):
+    try:
+        if payload.sessionId:
+            # validate session id
+            session = await remote_agent.async_get_session(user_id=GLOBAL_USER_ID,
+                                                           session_id=payload.sessionId)
+        elif payload.itinerary:
+            # create session
+            session = await remote_agent.async_create_session(user_id=GLOBAL_USER_ID)
+        else:
+            # fail
+            raise Exception('Either sessionId or itinerary is missing')
+    except Exception as e:
+        # session fail
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Either sessionId or itinerary is missing"}
+        )
+    # chat with session id
+    resp = UpdateResponse(
+        itinerary=None,
+        sessionId=session['id'],
+        text='hi'
+    )
+    return resp
+
+
+@api.post('/query')
 async def query(payload: QueryPayload):
+    return get(payload)
+
+
+@api.post('/get')
+async def get(payload: QueryPayload):
     prompt = (
         f'Please plan a {payload.days}-days trip starting from '
         f'{payload.startDate} in {", ".join(payload.locations)}. '
