@@ -74,7 +74,7 @@ class QueryPayload(BaseModel):
 class UpdatePayload(BaseModel):
     itinerary: Optional[AgentResponse] = None
     sessionId: Optional[str] = None
-    text: Optional[str] = None
+    text: str
 
 
 class UpdateResponse(BaseModel):
@@ -85,6 +85,7 @@ class UpdateResponse(BaseModel):
 
 @api.post('/update')
 async def update(payload: UpdatePayload):
+    text = ''
     try:
         if payload.sessionId:
             # validate session id
@@ -93,6 +94,8 @@ async def update(payload: UpdatePayload):
         elif payload.itinerary:
             # create session
             session = await remote_agent.async_create_session(user_id=GLOBAL_USER_ID)
+            text = f'Please help me to modify this itinerary:\n'
+            text += payload.itinerary.model_dump_json() + f'\n'
         else:
             # fail
             raise Exception('Either sessionId or itinerary is missing')
@@ -103,17 +106,43 @@ async def update(payload: UpdatePayload):
             content={"error": "Either sessionId or itinerary is missing"}
         )
     # chat with session id
-    resp = UpdateResponse(
-        itinerary=None,
-        sessionId=session['id'],
-        text='hi'
-    )
-    return resp
+    text += payload.text
+    itinerary = ''
+    full_text = ''
+    async for event in remote_agent.async_stream_query(
+        user_id=GLOBAL_USER_ID,
+        session_id=session['id'],
+        message=text,
+    ):
+        for resp in event['content']['parts']:
+            if 'text' in resp:
+                full_text += resp['text']
+
+    if 'STARTJSON' in full_text and 'ENDJSON' in full_text:
+        startjson = full_text.find('STARTJSON')
+        endjson = full_text.find('ENDJSON')
+        itinerary = full_text[startjson + 9:endjson]
+        full_text = full_text[:startjson] + full_text[endjson + 7:]
+
+    try:
+        validated = AgentResponse.model_validate_json(itinerary)
+        resp = UpdateResponse(
+            itinerary=validated,
+            sessionId=session['id'],
+            text=full_text
+        )
+    except Exception:
+        resp = UpdateResponse(
+            sessionId=session['id'],
+            text=full_text
+        )
+
+    return Response(content=resp.model_dump_json(), media_type='application/json')
 
 
 @api.post('/query')
 async def query(payload: QueryPayload):
-    return get(payload)
+    return await get(payload)
 
 
 @api.post('/get')
