@@ -83,6 +83,19 @@ class UpdateResponse(BaseModel):
     text: Optional[str] = None
 
 
+class DeletePayload(BaseModel):
+    sessionId: str
+
+
+@api.post('/delete')
+async def delete(payload: DeletePayload):
+    try:
+        await remote_agent.async_delete_session(user_id=GLOBAL_USER_ID, session_id=payload.sessionId)
+    except Exception as e:
+        logger.error(f'exception: {e}')
+    return JSONResponse(status_code=200, content={'error': None})
+
+
 @api.post('/update')
 async def update(payload: UpdatePayload):
     text = ''
