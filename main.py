@@ -69,6 +69,7 @@ class QueryPayload(BaseModel):
     days: int = Field(..., example=2)
     language: str = Field(..., example="Chinese Traditional")
     interests: Optional[list[str]] = None
+    pace: Optional[str] = None
 
 
 class UpdatePayload(BaseModel):
@@ -167,6 +168,8 @@ async def get(payload: QueryPayload):
     if payload.interests:
         prompt += f'The purposes of the trip are '
         prompt += ','.join(payload.interests) + '. '
+    if payload.pace:
+        prompt += f'The trip follows a {payload.pace} pace. '
     prompt += (
         f'Please give a title of this trip. '
         f'Use {payload.language} for value of title, location, note, and name. '
