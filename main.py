@@ -69,7 +69,7 @@ class QueryPayload(BaseModel):
     days: int = Field(..., example=2)
     language: str = Field(..., example="Chinese Traditional")
     interests: Optional[list[str]] = None
-    pace: Optional[str] = None
+    pace: Optional[int] = Field(None, ge=0, le=10)
     transportTypes: Optional[list[Literal[
         "train", "highSpeedTrain", "flight", "bus", "taxi",
         "bike", "walk", "car", "boat", "motorcycle", "other"
@@ -172,8 +172,12 @@ async def get(payload: QueryPayload):
     if payload.interests:
         prompt += f'The purposes of the trip are '
         prompt += ','.join(payload.interests) + '. '
-    if payload.pace:
-        prompt += f'The trip follows a {payload.pace} pace. '
+    if payload.pace != None:
+        prompt += (
+            f'The pace level range from 0 to 10, '
+            f'where 0 indicates a relaxed trip and 10 represents an intense one. '
+            f'This trip has a pace level {payload.pace}. '
+        )
     if payload.transportTypes:
         prompt += f'The prefered transport types for this trip are '
         prompt += ','.join(payload.transportTypes) + '. '
