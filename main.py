@@ -114,6 +114,9 @@ def itineraryjson2model(json_str):
                 'latitude': activity['latitude'],
                 'longitude': activity['longitude'],
             }
+        if activity['childActivities'] != None:
+            for ca in activity['childActivities']:
+                ca['duration'] = ca['durationInSeconds'] / 60
         activity['startTimeUtc'] = datetime.fromtimestamp(activity['startTimeUtc'] / 1000)
         activity['endTimeUtc'] = activity['startTimeUtc'] + timedelta(seconds=activity['durationInSeconds'])
         activity['duration'] = activity['durationInSeconds'] / 60
