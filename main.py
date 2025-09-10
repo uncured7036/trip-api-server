@@ -6,7 +6,7 @@ from vertexai import agent_engines
 import vertexai
 from pydantic import BaseModel, Field
 from typing import List, Literal, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from fastapi.responses import JSONResponse
 import logging
@@ -26,6 +26,23 @@ vertexai.init(
 )
 
 remote_agent = agent_engines.get(AGENT_ID)
+ActivityType = Literal[
+    "sightseeing", "restaurant", "shopping", "accommodation",
+    "freeTime", "transport", "other"
+]
+ACTIVITY_TYPE = (
+    "sightseeing", "restaurant", "shopping", "accommodation",
+    "freeTime", "transport", "other"
+)
+TransportType = Literal[
+    "train", "highSpeedTrain", "flight", "bus", "taxi",
+    "bike", "walk", "car", "boat", "motorcycle", "other"
+]
+TRANSPORT_TYPE = (
+    "train", "highSpeedTrain", "flight", "bus", "taxi",
+    "bike", "walk", "car", "boat", "motorcycle", "other"
+)
+
 
 class ChildActivity(BaseModel):
     name: str
@@ -38,19 +55,13 @@ class LatLng(BaseModel):
 
 
 class Activity(BaseModel):
-    type: Literal[
-        "sightseeing", "restaurant", "shopping", "accommodation",
-        "freeTime", "transport", "other"
-    ]
+    type: ActivityType
     location: str
     startTimeUtc: datetime
     duration: int  # in minutes
     endTimeUtc: datetime
     timeZone: str
-    transportType: Optional[Literal[
-        "train", "highSpeedTrain", "flight", "bus", "taxi",
-        "bike", "walk", "car", "boat", "motorcycle", "other"
-    ]] = None
+    transportType: Optional[TransportType] = None
     note: str
     childActivities: List[ChildActivity] = Field(default_factory=list)
     latLng: Optional[LatLng] = None
@@ -70,14 +81,11 @@ class QueryPayload(BaseModel):
     language: str = Field(..., example="Chinese Traditional")
     interests: Optional[list[str]] = None
     pace: Optional[int] = Field(None, ge=0, le=10)
-    transportTypes: Optional[list[Literal[
-        "train", "highSpeedTrain", "flight", "bus", "taxi",
-        "bike", "walk", "car", "boat", "motorcycle", "other"
-    ]]] = None
+    transportTypes: Optional[list[TransportType]] = None
 
 
 class UpdatePayload(BaseModel):
-    itinerary: Optional[AgentResponse] = None
+    itinerary: Optional[str] = None
     sessionId: Optional[str] = None
     text: str
 
@@ -90,6 +98,28 @@ class UpdateResponse(BaseModel):
 
 class DeletePayload(BaseModel):
     sessionId: str
+
+
+def itineraryjson2model(json_str):
+    itinerary_json = json.loads(json_str)
+    for activity in itinerary_json['activities']:
+        activity_type = activity['type']
+        transport_type = activity['transportType']
+        if activity_type != None:
+            activity['type'] = ACTIVITY_TYPE[activity_type]
+        if transport_type != None:
+            activity['transportType'] = TRANSPORT_TYPE[transport_type]
+        if activity['longitude'] != None:
+            activity['latLng'] = {
+                'latitude': activity['latitude'],
+                'longitude': activity['longitude'],
+            }
+        activity['startTimeUtc'] = datetime.fromtimestamp(activity['startTimeUtc'] / 1000)
+        activity['endTimeUtc'] = activity['startTimeUtc'] + timedelta(seconds=activity['durationInSeconds'])
+        activity['duration'] = activity['durationInSeconds'] / 60
+    itinerary_json['title'] = itinerary_json['trip']['name']
+    result_model = AgentResponse.model_validate(itinerary_json)
+    return result_model
 
 
 @api.post('/delete')
@@ -111,14 +141,16 @@ async def update(payload: UpdatePayload):
                                                            session_id=payload.sessionId)
         elif payload.itinerary:
             # create session
+            itinerary_model = itineraryjson2model(payload.itinerary)
             session = await remote_agent.async_create_session(user_id=GLOBAL_USER_ID)
             text = f'Please help me to modify this itinerary:\n'
-            text += payload.itinerary.model_dump_json() + f'\n'
+            text += itinerary_model.model_dump_json() + f'\n'
         else:
             # fail
             raise Exception('Either sessionId or itinerary is missing')
     except Exception as e:
         # session fail
+        logger.error(e)
         return JSONResponse(
             status_code=400,
             content={"error": "Either sessionId or itinerary is missing"}
@@ -149,7 +181,8 @@ async def update(payload: UpdatePayload):
             sessionId=session['id'],
             text=full_text
         )
-    except Exception:
+    except Exception as e:
+        logger.error(f'exception: {e}\n full_text: {full_text}')
         resp = UpdateResponse(
             sessionId=session['id'],
             text=full_text
