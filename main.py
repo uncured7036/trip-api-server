@@ -145,9 +145,16 @@ async def update(payload: UpdatePayload):
         elif payload.itinerary:
             # create session
             itinerary_model = itineraryjson2model(payload.itinerary)
+            lang = 'Chinese Tranditional'
             session = await remote_agent.async_create_session(user_id=GLOBAL_USER_ID)
             text = f'Please help me to modify this itinerary:\n'
             text += itinerary_model.model_dump_json() + f'\n'
+            text += (
+                f'Use {lang} for the values of title, location, note, and name. '
+                f'All other values should be in English. '
+                f'However, the conversation itself should be conducted in {lang}. '
+                f'Only reply with the modifications and keep the answer clean. '
+            )
         else:
             # fail
             raise Exception('Either sessionId or itinerary is missing')
@@ -185,7 +192,11 @@ async def update(payload: UpdatePayload):
             text=full_text
         )
     except Exception as e:
-        logger.error(f'exception: {e}\n full_text: {full_text}')
+        logger.error(
+            f'exception: {e}\n'
+            f'full_text: {full_text}\n'
+            f'itinerary: {itinerary}'
+        )
         resp = UpdateResponse(
             sessionId=session['id'],
             text=full_text
@@ -219,8 +230,8 @@ async def get(payload: QueryPayload):
         prompt += ','.join(payload.transportTypes) + '. '
     prompt += (
         f'Please give a title of this trip. '
-        f'Use {payload.language} for value of title, location, note, and name. '
-        f'All remaining values should be in English. '
+        f'Use {payload.language} for the values of title, location, note, and name. '
+        f'All other values should be in English. '
         f'No extra commentary or formatting. '
         f'Do not include any explanations, markdown, or extra text. '
         f'Output the JSON without additional explanation. '
