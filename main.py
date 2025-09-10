@@ -60,9 +60,9 @@ class Activity(BaseModel):
     startTimeUtc: datetime
     duration: int  # in minutes
     endTimeUtc: datetime
-    timeZone: str
+    timeZone: Optional[str] = None
     transportType: Optional[TransportType] = None
-    note: str
+    note: Optional[str] = None
     childActivities: List[ChildActivity] = Field(default_factory=list)
     latLng: Optional[LatLng] = None
     placeUri: Optional[str] = None
